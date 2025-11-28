@@ -1,0 +1,44 @@
+server:
+  port: 8080 # Spring Boot 기본 포트
+
+spring:
+  # ==================================
+  # 1. 데이터베이스 설정 (MySQL)
+  # ==================================
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 💡 URL: 타임존과 인코딩 정보(UTF-8)는 필수입니다.
+    url: jdbc:mysql://localhost:3306/truthify?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: root
+    password: 
+
+  # ==================================
+  # 2. JPA (Hibernate) 설정
+  # ==================================
+  jpa:
+    hibernate:
+      # ddl-auto: update는 개발 중 엔티티 변경 시 스키마를 자동 업데이트합니다.
+      ddl-auto: update 
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true # SQL을 보기 좋게 포매팅
+    database-platform: org.hibernate.dialect.MySQL8Dialect 
+  
+  # ==================================
+  # 3. Web/MVC 설정 (CORS는 Java Config 사용 권장)
+  # ==================================
+    # 이 설정은 WebConfig.java에서 더 상세하게 다루지만, 
+    # 기본 경로는 /api/v1으로 가정합니다.
+
+
+# ==================================
+# 4. Truthify 프로젝트 전용 설정 (AI 서버 연동)
+# ==================================
+truthify:
+  # Python AI 마이크로서비스의 기본 주소와 엔드포인트
+  ai:
+    # 💡 Python FastAPI 서버가 구동될 주소 (예: localhost:5000)
+    url: http://localhost:5000 
+    # 분석 요청을 위한 엔드포인트
+    analyze-path: /api/ai/analyze
