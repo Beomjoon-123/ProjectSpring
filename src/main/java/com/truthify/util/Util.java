@@ -5,7 +5,6 @@ public class Util {
 		if (msg == null) {
 			msg = "";
 		}
-		return String.format("<script>alert('%s); location.replace('%s');</script>",msg, uri);
-		
+		return String.format("<script>alert('%s'); location.replace('%s');</script>",msg, uri);	
 	}
 }
