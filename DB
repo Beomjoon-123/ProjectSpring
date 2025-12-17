@@ -1,49 +1,69 @@
-CREATE TABLE `member`(
-	loginId VARCHAR(50) PRIMARY KEY AUTO_INCREMENT
-	, loginPw VARCHAR(255) UNIQUE
-	, nickname VARCHAR(100)
-	, email VARCHAR(100) UNIQUE
-	, provider VARCHAR(20)
-	, providerId VARCHAR(20)
-	, `role` VARCHAR(20) NOT NULL
-	, regDate DATETIME NOT NULL
-	, updateDate DATETIME NOT NULL
-	, `name` VARCHAR (50)
-	, phone VARCHAR(15)
-);
- CREATE TABLE userFeedback(
-	id BIGINT(20) NOT NOT NULL PRIMARY KEY AUTO_INCREMENT
-	, userId BIGINT(20) NOT NULL
-	, adTextId BIGINT(20) NOT NULL
-	, trustScore TINYINT(4) NOT NULL
-	, regDate DATETIME DEFAULT CURRENT_TIMESTAMP()
- );
-DESC banned_words(
-	id BIGINT(20) NOT NULL PRIMARY KEY AUTO_INCREMENT
-	, keyword VARCHAR(100) NOT NULL UNIQUE
-	, lawType VARCHAR(30) 
-	, DESCRIPTION TEXT 
-	, isActive TINYINT(1) NOT NULL DEFAULT 1
-	, regDate DATETIME CURRENT_TIMESTAMP()
-); 
+CREATE TABLE `member` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `loginId` VARCHAR(50) NULL,
+  `loginPw` VARCHAR(255) NULL,
+  `nickname` VARCHAR(100) NOT NULL,
+  `email` VARCHAR(100) NOT NULL,
+  `provider` VARCHAR(20) NULL,
+  `providerId` VARCHAR(100) NULL,
+  `role` VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER',
+  `regDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `name` VARCHAR(50) NULL,
+  `phone` VARCHAR(15) NULL,
 
-CREATE TABLE(
-id bigtin(20) NOT NULL PRIMARY KEY AUTO_INCREMENT
-, adTextId BIGINT(20) NOT NULL
-, exgCount INT(11)
-, banwordCount INT(11)
-, riskScore DOUBLE
-, highRiskSentences LONGTEXT
-, summary texst
-, regDAte datetie CURRENT_TIMESTAMP()
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `loginId` (`loginId`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `phone` (`phone`)
 );
 
-CREATE TABLE(
- id INT(11) PRIMARY KEY AUTO_INCREMENT
- , userId INT(11) NOT NULL
- , content TEXT NOT NULL
- , riskScore INT(11)
- , regDate DATETIME NOT NULL CURRENT_TIMESTAMP()
- , isPublic TINYINT(1)
- , publicAt DATETIME 
+ CREATE TABLE userFeedback (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `userId` BIGINT(20) NOT NULL,
+  `adTextId` BIGINT(20) NOT NULL,
+  `trustScore` TINYINT(4) NOT NULL,
+  `regDate` DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+  KEY `userId` (`userId`)
+);
+
+CREATE TABLE `banned_words` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `keyword` VARCHAR(100) NOT NULL,
+  `lawType` VARCHAR(30) NULL,
+  `description` TEXT NULL,
+  `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  `regDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `keyword` (`keyword`),
+  KEY `isActive` (`isActive`)
+);
+
+CREATE TABLE `analResult` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `adTextId` BIGINT(20) NOT NULL,
+  `exgCount` INT(11) NULL,
+  `banwordCount` INT(11) NULL,
+  `riskScore` DOUBLE NULL,
+  `highRiskSentence` LONGTEXT NULL,
+  `summary` TEXT NULL,
+  `regDate` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE `ad_text` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `userId` INT(11) NOT NULL,
+  `content` TEXT NOT NULL,
+  `riskScore` INT(11) NULL DEFAULT 0,
+  `regDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `isPublic` TINYINT(1) NULL DEFAULT 0,
+  `publicAt` DATETIME NULL DEFAULT NULL,
+
+  PRIMARY KEY (`id`),
+  KEY `userId` (`userId`)
 );
