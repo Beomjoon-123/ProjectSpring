@@ -1,65 +1,94 @@
 package com.truthify.controller;
 
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import com.truthify.config.auth.dto.SessionUser;
-import com.truthify.ad.dto.AdAnalyzeRequest; // 💡 개별 파일 임포트
-import com.truthify.ad.dto.AdAnalyzeResponse; // 💡 개별 파일 임포트
-import com.truthify.ad.dto.AdFeedbackRequest; // 💡 개별 파일 임포트
-import com.truthify.service.AdService;
+import com.truthify.ad.dto.AdAnalysisDetailResponse;
+import com.truthify.ad.dto.AdAnalyzeRequest;
+import com.truthify.ad.dto.AdAnalyzeResponse;
+import com.truthify.ad.dto.AdVisibilityRequest;
+import com.truthify.service.AdAnalysisService;
+import com.truthify.user.dto.CustomUserDetails;
 import com.truthify.user.dto.ResultData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/ad")
 public class AdController {
-    
-    private final AdService adService;
 
-//    @PostMapping("/analyze")
-//    public ResultData<AdAnalyzeResponse> analyzeAdText(
-//            @RequestBody AdAnalyzeRequest request,
-//            @AuthenticationPrincipal SessionUser principal) {
-//        
-//        if (principal == null) {
-//            return ResultData.of("F-3", "로그인이 필요한 서비스입니다");
-//        }
-//
-//        try {
-//            // 1. AI 분석 및 DB 저장 후 Response DTO 반환
-//            AdAnalyzeResponse response = adService.analyzeAndSaveAdText(request, principal);
-//            
-//            return ResultData.of("S-1", "광고 분석 완료", response);
-//        } catch (IllegalArgumentException e) {
-//            return ResultData.of("F-4", e.getMessage());
-//        } catch (RuntimeException e) {
-//            return ResultData.of("F-5", e.getMessage());
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            return ResultData.of("F-2", "서버 오류");
-//        }
-//    }
+    private final AdAnalysisService adAnalysisService;
 
-    @PostMapping("/feedback")
-    public ResultData<?> submitFeedback(
-            @RequestBody AdFeedbackRequest request,
-            @AuthenticationPrincipal SessionUser principal) {
+    @PostMapping("/analyze")
+    public ResultData<AdAnalyzeResponse> analyzeAdText(
+            @RequestBody AdAnalyzeRequest request,
+            @AuthenticationPrincipal CustomUserDetails user) {
 
-        if (principal == null) {
+        if (user == null) {
             return ResultData.of("F-3", "로그인이 필요한 서비스입니다");
         }
-        
-        try {
-            adService.submitFeedback(request, principal);
-            return ResultData.of("S-1", "피드백이 저장되었습니다.");
-        } catch (IllegalArgumentException e) {
-            return ResultData.of("F-4", e.getMessage());
-        } catch (Exception e) {
-            return ResultData.of("F-2", "서버 오류");
+
+        return ResultData.of(
+            "S-1",
+            "광고 분석 완료",
+            adAnalysisService.analyze(request, user.getMember())
+        );
+    }
+
+    @GetMapping("/{adTextId}/detail")
+    public ResultData<AdAnalysisDetailResponse> getAnalysisDetail(
+            @PathVariable Long adTextId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        return ResultData.of(
+            "S-1",
+            "분석 상세 조회 성공",
+            adAnalysisService.getAnalysisDetail(
+                adTextId,
+                user != null ? user.getMember() : null
+            )
+        );
+    }
+
+    @GetMapping("/my")
+    public ResultData<?> getMyAdHistory(
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        if (user == null) {
+            return ResultData.of("F-3", "로그인이 필요합니다");
         }
+
+        return ResultData.of(
+            "S-1",
+            "내 분석 히스토리 조회 성공",
+            adAnalysisService.getMyHistory(user.getMember())
+        );
+    }
+
+    @PostMapping("/{adTextId}/public")
+    public ResultData<?> makePublic(
+            @PathVariable Long adTextId,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        if (user == null) {
+            return ResultData.of("F-3", "로그인이 필요합니다");
+        }
+
+        adAnalysisService.makePublic(user.getMember(), adTextId);
+        return ResultData.of("S-1", "분석 결과가 공개되었습니다");
+    }
+    
+    @GetMapping("/public") 
+    public ResultData<?> getPublicAds(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "6") int size) {
+    	return ResultData.of("S-1", "공개된 분석 목록", adAnalysisService.getPublicAdsPaged(page, size));
+    }
+    
+    @PatchMapping("/{adTextId}/visibility")
+    public ResultData<?> setVisibility(@PathVariable Long adTextId, @RequestBody AdVisibilityRequest req, @AuthenticationPrincipal CustomUserDetails user) {
+    	
+    	if (user == null) return ResultData.of("F-3", "로그인이 필요한 서비스입니다");
+    	if (req.getIsPublic() == null) return ResultData.of("F-1", "isPublic 값 필요");
+    	
+    	adAnalysisService.setVisibility(user.getMember(), adTextId, req.getIsPublic());
+    	return ResultData.of("S-1", req.getIsPublic() ? "공개로 전환되었습니다" : "비공개로 전환되었습니다");
     }
 }

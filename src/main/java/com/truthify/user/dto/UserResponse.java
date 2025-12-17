@@ -15,7 +15,8 @@ public class UserResponse {
     private String nickname;
     private String role;
     private String provider; // 소셜 로그인 사용자 구분을 위해 추가
-
+    private String name;
+    private String phone;
     /**
      * Member 엔티티로부터 UserResponse DTO를 생성합니다.
      */
@@ -30,6 +31,8 @@ public class UserResponse {
                 .nickname(member.getNickname())
                 .role(member.getRole() != null ? member.getRole().getKey() : null)
                 .provider(member.getProvider())
+                .name(member.getName())
+                .phone(member.getPhone())
                 .build();
     }
 }

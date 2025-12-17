@@ -12,7 +12,7 @@ public class WebClientConfig {
 	private String pythonAiBaseUrl;
 
 	@Bean
-	public WebClient webClient() {
-		return WebClient.builder().baseUrl(this.pythonAiBaseUrl).build();
+	public WebClient webClient(@Value("${truthify.openai.base-url}") String baseUrl) {
+		return WebClient.builder().baseUrl(baseUrl).build();
 	}
 }

@@ -12,4 +12,6 @@ public class UserRequest {
 	private String loginPw;
 	private String email;
 	private String nickname;
+	private String name;
+	private String phone;
 }

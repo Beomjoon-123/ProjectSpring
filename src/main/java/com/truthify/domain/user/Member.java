@@ -16,16 +16,16 @@ public class Member {
 	private String loginPw;
 	private String nickname;
 	private String email;
-	private String picture;
 	private String provider;
 	private String providerId;
+	private String phone;
+	private String name;
 	private Role role;
 	private LocalDateTime regDate;
 	private LocalDateTime updateDate;
 
-	public void update(String nickname, String picture) {
+	public void update(String nickname) {
 		this.nickname = nickname;
-		this.picture = picture;
 		this.updateDate = LocalDateTime.now();
 	}
 

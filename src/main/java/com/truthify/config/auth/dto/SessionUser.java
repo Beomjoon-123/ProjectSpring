@@ -4,29 +4,37 @@ import com.truthify.domain.user.Member;
 import lombok.Getter;
 import java.io.Serializable;
 
-/**
- * 인증된 사용자 정보를 세션에 저장하기 위한 DTO 클래스 Member 엔티티를 직접 세션에 저장하면 직렬화 오류가 발생할 수 있으므로,
- * 세션 저장용 DTO를 따로 정의하고 Serializable을 구현합니다.
- */
 @Getter
-public class SessionUser implements Serializable { // 세션에 저장하기 위해 직렬화(Serializable) 구현
+public class SessionUser implements Serializable {
 
-	private Long id;
-	private String nickname;
-	private String email;
-	private String picture;
-	private String provider;
-	private String roleKey; // 권한 키 (예: ROLE_USER)
+    private static final long serialVersionUID = 1L; // 명시적 serialVersionUID 추가 (중요)
 
-	/**
-	 * Member 엔티티를 기반으로 SessionUser를 생성하는 생성자
-	 */
-	public SessionUser(Member member) {
-		this.id = member.getId();
-		this.nickname = member.getNickname();
-		this.email = member.getEmail();
-		this.picture = member.getPicture();
-		this.provider = member.getProvider();
-		this.roleKey = member.getRoleKey();
-	}
+    private Long id;
+    private String nickname;
+    private String email;
+    private String provider;
+    private String roleKey;
+    private String name;
+    private String phone;
+
+    public SessionUser(Member member) {
+        this.id = member.getId();
+        this.nickname = member.getNickname();
+        this.email = member.getEmail();
+        this.provider = member.getProvider();
+        this.roleKey = member.getRole() != null ? member.getRole().getKey() : null;
+        this.name = member.getName();
+        this.phone = member.getPhone();
+    }
+
+    // 추가: loginId만 있을 때 안전하게 세션에 넣을 수 있는 생성자
+    public SessionUser(String loginId) {
+        this.id = null;
+        this.nickname = loginId; // 임시 닉네임으로 loginId 사용
+        this.email = null;
+        this.provider = null;
+        this.roleKey = null;
+        this.name = null;
+        this.phone = null;
+    }
 }

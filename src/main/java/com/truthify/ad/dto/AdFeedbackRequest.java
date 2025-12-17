@@ -11,6 +11,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdFeedbackRequest {
-	private Integer adTextId; // 피드백을 남길 광고 텍스트 ID (PK)
-	private Boolean trustScore; // true: 신뢰함, false: 신뢰 안 함
+	private int trustScore; // true: 신뢰함, false: 신뢰 안 함
 }

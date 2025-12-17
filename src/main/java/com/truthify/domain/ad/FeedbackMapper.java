@@ -1,26 +1,62 @@
 package com.truthify.domain.ad;
 
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import com.truthify.domain.UserFeedback;
 
 @Mapper
 public interface FeedbackMapper {
 
-	/**
-	 * 사용자의 신뢰도 피드백 DB에 저장 adTextId와 userId의 UNIQUE KEY 제약 조건
-	 */
 	@Insert("""
-			    INSERT INTO Feedback (
-			        adTextId, userId, trustScore, regDate
-			    ) VALUES (
-			        #{adTextId}, #{userId}, #{trustScore}, NOW()
-			    )
+			    INSERT INTO userFeedback (adTextId, userId, trustScore, regDate)
+			    VALUES (#{adTextId}, #{member.id}, #{trustScore}, NOW())
 			""")
-	@Options(useGeneratedKeys = true, keyProperty = "id")
-	void save(@Param("adTextId") Integer adTextId, @Param("userId") Integer userId,
-			@Param("trustScore") boolean trustScore);
+	void save(UserFeedback feedback);
 
-	// 추가적인 조회 메서드 (예: findByAdTextId)는 필요에 따라 추가
+	@Select("""
+			    SELECT COUNT(*)
+			    FROM userFeedback
+			    WHERE userId = #{userId}
+			    AND adTextId = #{adTextId}
+			""")
+	int exists(@Param("userId") Long userId, @Param("adTextId") Long adTextId);
+
+	@Select("""
+			 SELECT
+			  COALESCE(SUM(CASE WHEN trustScore = 1 THEN 1 ELSE 0 END),0) AS trustCount,
+			  COALESCE(SUM(CASE WHEN trustScore = 0 THEN 1 ELSE 0 END),0) AS distrustCount,
+			  COUNT(*) AS total
+			FROM userFeedback
+			WHERE adTextId = #{adTextId}
+
+			    """)
+	FeedbackStats findStatsByAdId(Long adTextId);
+
+	@Select("""
+			    SELECT trustScore
+			    FROM userFeedback
+			    WHERE userId = #{userId}
+			    AND adTextId = #{adTextId}
+			""")
+	Integer findMyVote(@Param("userId") Long userId, @Param("adTextId") Long adTextId);
+
+	@Update("""
+			UPDATE userFeedback
+				SET trustScore = #{trustScore}, regDate = NOW()
+				WHERE userId = #{userId}
+				AND adTextId = #{adTextId}
+			""")
+	void update(@Param("userId") Long userId, @Param("adTextId") Long adTextId, @Param("trustScore") int trustScore);
+
+	@Delete("""
+			DELETE FROM userFeedback
+			WHERE userId = #{userId}
+			AND adTextId = #{adTextId}
+			""")
+	void delete(@Param("userId") Long userId, @Param("adTextId") Long adTextId);
 }

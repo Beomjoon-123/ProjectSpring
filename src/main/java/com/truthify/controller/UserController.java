@@ -1,7 +1,10 @@
 package com.truthify.controller;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -9,18 +12,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
-import com.truthify.config.auth.dto.SessionUser; // ✅ SessionUser DTO 임포트
-import com.truthify.domain.User;
 import com.truthify.service.UserService;
 import com.truthify.user.dto.ResultData;
 import com.truthify.user.dto.UserRequest;
 import com.truthify.user.dto.UserResponse;
 import lombok.RequiredArgsConstructor;
 
-@CrossOrigin(origins = "http://localhost:3000")
+//@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/usr/user")
+@RequestMapping("/api/user")
 public class UserController {
 	private final UserService userService;
 
@@ -32,46 +33,34 @@ public class UserController {
 		} catch (IllegalArgumentException e) {
 			return ResultData.of("F-1", e.getMessage());
 		} catch (Exception e) {
+			e.printStackTrace();
 			return ResultData.of("F-2", "Server Error");
 		}
 	}
 
 	@GetMapping("/me")
-	public ResultData<UserResponse> getLoginedUserInfo(@AuthenticationPrincipal SessionUser principal) {
+	public ResultData<?> getLoginedUserInfo(@AuthenticationPrincipal Object principal) {
 
-		if (principal == null) {
+		if (principal == null || principal.equals("anonymousUser")) {
 			return ResultData.of("F-3", "로그인이 필요한 서비스입니다");
 		}
-
-		String identifier = principal.getEmail();
-
-		try {
-			if (principal instanceof SessionUser) {
-				identifier = ((SessionUser) principal).getEmail();
-				return ResultData.of("F-6", "OAuth2 사용자는 현재 ID/PW 조회 경로에서 지원하지 않습니다. (임시 메시지)");
+		
+		if (principal instanceof OAuth2User oAuth2User) {
+			String email = oAuth2User.getAttribute("email");
+			
+			if (email == null) {
+				return ResultData.of("F-6", "OAuth 사용자 이메일 없음");
 			}
-
-			String loginIdFromPrincipal = null;
-			try {
-
-				loginIdFromPrincipal = ((org.springframework.security.core.userdetails.UserDetails) principal)
-						.getUsername();
-			} catch (ClassCastException e) {
-				if (principal instanceof SessionUser) {
-					return ResultData.of("F-6", "OAuth2 사용자는 현재 ID/PW 조회 경로에서 지원하지 않습니다. (임시 메시지)");
-				}
-				return ResultData.of("F-7", "인증 주체 타입 오류");
-			}
-
-			UserResponse user = userService.getMemberByLoginId(loginIdFromPrincipal);
-
-			if (user == null) {
-				return ResultData.of("F-4", "사용자 정보를 찾을 수 없습니다");
-			}
-			return ResultData.of("S-1", "사용자 정보 조회 성공", user);
-		} catch (Exception e) {
-			return ResultData.of("F-5", "오류가 발생하여 사용자 정보를 불러올 수 없습니다");
+			
+			UserResponse user = userService.getMemberByEmail(email);
+			return ResultData.of("S-1", "OAuth 사용자", user);
 		}
+		
+		if (principal instanceof UserDetails userdetails) {
+			UserResponse user = userService.getMemberByLoginId(userdetails.getUsername());
+			return ResultData.of("S-1", "일반 사용자", user);
+		}
+		return ResultData.of("F-7", "알 수 없는 로그인 타입");
 	}
 
 	@GetMapping("/loginIdDupChk")
@@ -94,5 +83,40 @@ public class UserController {
 			return ResultData.of("F-1", "이미 사용중인 닉네임입니다");
 		}
 		return ResultData.of("S-1", "사용가능한 닉네임입니다");
+	}
+
+	@PostMapping("/find-login-id")
+	public Map<String, Object> findLoginId(@RequestParam String email) {
+		Map<String, Object> result = new HashMap<>();
+
+		String loginId = userService.findLoginByEmail(email);
+		if (loginId == null) {
+			result.put("resultCode", "F-1");
+			result.put("msg", " 해당 이메일로 가입된 계정이 없습니다");
+		} else {
+			result.put("resultCode", "S-1");
+			result.put("loginId", loginId);
+		}
+		return result;
+	}
+
+	@PostMapping("/find-password")
+	public ResultData<?> findPassword(@RequestBody Map<String, String> request) {
+		Map<String, Object> result = new HashMap<>();
+
+		String loginId = request.get("loginId");
+		String email = request.get("email");
+
+		if (loginId == null || email == null) {
+			return ResultData.of("F-1", "아이디와 이메일을 모두 입력해주세요");
+		}
+		
+		String tempPassword = userService.sendTempPassword(loginId, email);
+		
+		if (tempPassword != null) {
+			return ResultData.of("S-1", "임시 비밀번호가 생성되었습니다", "임시 비밀번호를 전송했습니다");
+		} else {
+			return ResultData.of("F-2", "입력하신 아이디와 이메일 정보가 일치하는 사용자를 찾을 수 없습니다");
+		}
 	}
 }

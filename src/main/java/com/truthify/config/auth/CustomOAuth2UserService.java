@@ -1,10 +1,11 @@
 package com.truthify.config.auth;
 
 import com.truthify.config.auth.dto.OAuthAttributes;
-import com.truthify.config.auth.dto.SessionUser; // 💡 SessionUser DTO import
+import com.truthify.config.auth.dto.SessionUser;
 import com.truthify.domain.user.Member;
 import com.truthify.domain.user.MemberMapper;
 import com.truthify.domain.user.Role;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,70 +19,73 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.Optional;
 
-/**
- * OAuth2 로그인 성공 후 사용자 정보를 처리하는 서비스입니다. OAuth2User 정보를 기반으로 DB에 저장하거나 업데이트하고,
- * 세션에 저장합니다.
- */
 @Slf4j
 @RequiredArgsConstructor
 @Service
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
-	private final MemberMapper memberMapper;
-	private final jakarta.servlet.http.HttpSession httpSession; // 💡 HttpSession 주입
+    private final MemberMapper memberMapper;
+    private final HttpSession httpSession;
 
-	@Override
-	public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+    @Override
+    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
 
-		OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
-		OAuth2User oauth2User = delegate.loadUser(userRequest);
+        OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
+        OAuth2User oauth2User = delegate.loadUser(userRequest);
 
-		String registrationId = userRequest.getClientRegistration().getRegistrationId();
-		String userNameAttributeName = userRequest.getClientRegistration().getProviderDetails().getUserInfoEndpoint()
-				.getUserNameAttributeName();
+        String registrationId = userRequest.getClientRegistration().getRegistrationId();
+        String userNameAttributeName = userRequest.getClientRegistration()
+                .getProviderDetails()
+                .getUserInfoEndpoint()
+                .getUserNameAttributeName();
 
-		OAuthAttributes attributes = OAuthAttributes.of(registrationId, userNameAttributeName,
-				oauth2User.getAttributes());
+        OAuthAttributes attributes = OAuthAttributes.of(registrationId, userNameAttributeName,
+                oauth2User.getAttributes());
 
-		Member member = saveOrUpdate(attributes);
+        Member member = saveOrUpdate(attributes);
 
-		// 💡 로그인 성공 시, 사용자 정보를 세션에 저장
-		httpSession.setAttribute("user", new SessionUser(member));
+        httpSession.setAttribute("user", new SessionUser(member));
 
-		// 6. SecurityContext에 저장할 DefaultOAuth2User 객체 생성 및 반환
-		return new DefaultOAuth2User(Collections.singleton(new SimpleGrantedAuthority(member.getRoleKey())), // 권한 설정
-				attributes.getAttributes(), // 사용자 속성 Map
-				attributes.getNameAttributeKey() // 속성 키 (Primary Key)
-		);
-	}
+        return new DefaultOAuth2User(
+                Collections.singleton(new SimpleGrantedAuthority(member.getRoleKey())),
+                attributes.getAttributes(),
+                attributes.getNameAttributeKey()
+        );
+    }
 
-	/**
-	 * DB에 사용자 정보가 있으면 업데이트하고, 없으면 저장합니다.
-	 */
-	private Member saveOrUpdate(OAuthAttributes attributes) {
-		// 이메일을 통해 기존 사용자 찾기
-		Optional<Member> memberOptional = memberMapper.findByEmail(attributes.getEmail());
+    private Member saveOrUpdate(OAuthAttributes attributes) {
+        Optional<Member> memberOptional;
 
-		Member member;
+        // 이메일이 존재하면 이메일 기준, 없으면 provider+providerId 기준
+        if (attributes.getEmail() != null && !attributes.getEmail().isEmpty()) {
+            memberOptional = memberMapper.findByEmail(attributes.getEmail());
+        } else {
+            memberOptional = memberMapper.findByProviderAndProviderId(attributes.getProvider(), attributes.getProviderId());
+        }
 
-		if (memberOptional.isPresent()) {
-			// 💡 기존 사용자: 닉네임, 프로필 사진만 업데이트
-			member = memberOptional.get();
-			member.update(attributes.getName(), attributes.getPicture());
-			memberMapper.update(member); // DB 업데이트
-			log.info("Existing member updated: {}", member.getEmail());
+        Member member;
 
-		} else {
-			// 💡 신규 사용자: Member 엔티티를 생성하여 DB에 저장
-			member = attributes.toEntity();
-			// toEntity에서 Role이 GUEST로 설정되었을 경우 USER로 변경합니다. (소셜 로그인은 일반 사용자)
-			if (member.getRole() == Role.GUEST) {
-				member.setRole(Role.USER);
-			}
-			memberMapper.save(member); // DB 저장
-			log.info("New member saved: {}", member.getEmail());
-		}
+        if (memberOptional.isPresent()) {
+            member = memberOptional.get();
+            member.update(attributes.getName());
+            memberMapper.update(member);
+            log.info("Existing member updated: {}", member.getNickname());
+        } else {
+            member = attributes.toEntity();
 
-		return member;
-	}
+            if (member.getRole() == Role.GUEST) {
+                member.setRole(Role.USER);
+            }
+
+            // 이메일 없으면 임시 이메일 생성
+            if (member.getEmail() == null || member.getEmail().isEmpty()) {
+                member.setEmail(member.getProvider() + "_" + member.getProviderId() + "@noemail.com");
+            }
+
+            memberMapper.save(member);
+            log.info("New member saved: {}", member.getNickname());
+        }
+
+        return member;
+    }
 }

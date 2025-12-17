@@ -6,79 +6,60 @@ import lombok.Builder;
 import lombok.Getter;
 import java.util.Map;
 
-/**
- * 소셜 로그인 서비스별로 제공되는 사용자 정보를 공통된 포맷으로 변환하는 DTO 클래스
- */
 @Getter
+@Builder
 public class OAuthAttributes {
+    private Map<String, Object> attributes; // OAuth2User 전체 attributes
+    private String nameAttributeKey;        // PK 역할
+    private String name;
+    private String email;
+    private String provider;
+    private String providerId;
 
-	private Map<String, Object> attributes; // OAuth2User의 getAttributes()
-	private String nameAttributeKey; // 사용자 이름, 이메일 등의 키
-	private String name; // ✅ 사용자 이름/닉네임 필드
-	private String email;
-	private String picture;
-	private String provider; // 구글, 카카오 등
-	private String providerId; // 소셜 서비스 내에서 사용자 고유 ID
+    public static OAuthAttributes of(String registrationId, String userNameAttributeName,
+                                     Map<String, Object> attributes) {
+        if ("kakao".equals(registrationId)) {
+            Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
+            if (kakaoAccount == null) kakaoAccount = Map.of();
 
-	@Builder
-	public OAuthAttributes(Map<String, Object> attributes, String nameAttributeKey, String name, String email,
-			String picture, String provider, String providerId) {
-		this.attributes = attributes;
-		this.nameAttributeKey = nameAttributeKey;
-		this.name = name;
-		this.email = email;
-		this.picture = picture;
-		this.provider = provider;
-		this.providerId = providerId;
-	}
+            Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
+            if (profile == null) profile = Map.of();
 
-	/**
-	 * 소셜 서비스별로 사용자 정보 추출 로직을 분기
-	 */
-	public static OAuthAttributes of(String registrationId, String userNameAttributeName,
-			Map<String, Object> attributes) {
-		if ("kakao".equals(registrationId)) {
-			return ofKakao(userNameAttributeName, attributes);
-		}
-		return ofGoogle(userNameAttributeName, attributes);
-	}
+            String nickname = (String) profile.getOrDefault("nickname", "NoName");
+            String email = (String) kakaoAccount.get("email"); // null 가능
 
-	private static OAuthAttributes ofGoogle(String userNameAttributeName, Map<String, Object> attributes) {
-		return OAuthAttributes.builder().name((String) attributes.get("name")).email((String) attributes.get("email"))
-				.picture((String) attributes.get("picture")).attributes(attributes)
-				.nameAttributeKey(userNameAttributeName).provider("GOOGLE")
-				.providerId((String) attributes.get(userNameAttributeName)) // 'sub' 값을 사용
-				.build();
-	}
+            return OAuthAttributes.builder()
+                    .name(nickname)
+                    .email(email)
+                    .provider("kakao")
+                    .providerId(String.valueOf(attributes.get("id")))
+                    .attributes(attributes)
+                    .nameAttributeKey(userNameAttributeName)
+                    .build();
 
-	/**
-	 * Kakao에서 받은 사용자 정보를 OAuthAttributes로 변환 카카오는 정보가 nested 되어 있으므로 별도 처리가 필요
-	 */
-	private static OAuthAttributes ofKakao(String userNameAttributeName, Map<String, Object> attributes) {
-		// 카카오 계정 정보는 'kakao_account' 내부에
-		Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
+        } else if ("google".equals(registrationId)) {
+            return OAuthAttributes.builder()
+                    .name((String) attributes.get("name"))
+                    .email((String) attributes.get("email"))
+                    .provider("google")
+                    .providerId((String) attributes.get("sub"))
+                    .attributes(attributes)
+                    .nameAttributeKey(userNameAttributeName)
+                    .build();
+        }
+        throw new IllegalArgumentException("지원하지 않는 OAuth2 provider: " + registrationId);
+    }
 
-		// 프로필 정보는 'profile' 내부에
-		Map<String, Object> kakaoProfile = (Map<String, Object>) kakaoAccount.get("profile");
+    public Member toEntity() {
+        // 이메일이 null일 경우 임시 값 생성
+        String safeEmail = email != null ? email : provider + "_" + providerId + "@noemail.com";
 
-		String email = (String) kakaoAccount.get("email");
-		String picture = (String) kakaoProfile.get("profile_image_url");
-		String name = (String) kakaoProfile.get("nickname");
-		String providerId = String.valueOf(attributes.get(userNameAttributeName));
-
-		return OAuthAttributes.builder().name((String) kakaoProfile.get("nickname"))
-				.email((String) kakaoAccount.get("email")).picture((String) kakaoProfile.get("profile_image_url"))
-				.attributes(attributes).nameAttributeKey(userNameAttributeName) // 'id' (Kakao 기본 키)
-				.provider("KAKAO").providerId(String.valueOf(attributes.get(userNameAttributeName))) // 'id' 값을 String으로
-																										// 변환
-				.build();
-	}
-
-	/**
-	 * OAuthAttributes에서 Member 엔티티를 생성 최초 회원가입 시 사용
-	 */
-	public Member toEntity() {
-		return Member.builder().nickname(name).email(email).picture(picture).provider("KAKAO").providerId(providerId)
-				.role(Role.GUEST).build();
-	}
+        return Member.builder()
+                .nickname(name)
+                .email(safeEmail)
+                .provider(provider)
+                .providerId(providerId)
+                .role(Role.GUEST)
+                .build();
+    }
 }
